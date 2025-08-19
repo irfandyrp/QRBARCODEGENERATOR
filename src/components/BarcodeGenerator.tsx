@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
-import html2canvas from 'html2canvas';
 
 type CodeType = 'barcode' | 'qrcode';
 
@@ -80,19 +79,22 @@ export default function BarcodeGenerator() {
             displayValue: true,
             fontSize: 14,
             textMargin: 8,
-            background: "#ffffff",
+            // Transparent background so exported PNG has no white box
+            background: 'rgba(0,0,0,0)',
             lineColor: "#000000",
-            margin: 10
+            // Remove extra margins/quiet zones to minimize empty space
+            margin: 0
           });
           console.log('Barcode generated successfully');
         } else {
           // Generate QR code
           await QRCode.toCanvas(canvas, inputText.trim(), {
             width: 200,
-            margin: 2,
+            margin: 0,
             color: {
               dark: '#000000',
-              light: '#ffffff'
+              // Transparent background for QR code
+              light: '#0000'
             }
           });
           console.log('QR code generated successfully');
@@ -124,53 +126,23 @@ export default function BarcodeGenerator() {
     setError('');
   };
 
-  // Save code as PNG
+  // Save code as PNG (transparent, only the canvas content)
   const saveAsPNG = async () => {
-    if (!containerRef.current || !displayText) {
+    const canvas = canvasRef.current;
+    if (!canvas || !displayText) {
       alert(`Tidak ada ${codeType === 'barcode' ? 'barcode' : 'QR code'} untuk disimpan!`);
       return;
     }
 
     try {
-      // Temporarily override styles to avoid OKLCH issues
-      const originalStyles = containerRef.current.style.cssText;
-      
-      // Apply explicit styles that html2canvas can handle
-      containerRef.current.style.cssText = `
-        background: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 8px !important;
-        padding: 24px !important;
-        min-height: 180px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        color: #1f2937 !important;
-        font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace !important;
-      `;
-
-      const canvas = await html2canvas(containerRef.current, {
-        useCORS: true,
-        allowTaint: false
-      });
-
-      // Restore original styles
-      containerRef.current.style.cssText = originalStyles;
-
-      // Create download link
       const link = document.createElement('a');
       link.download = `${codeType}-${displayText}-${Date.now()}.png`;
+      // Export only the canvas bitmap (transparent background preserved)
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (error) {
       console.error(`Error saving ${codeType}:`, error);
       alert(`Gagal menyimpan ${codeType === 'barcode' ? 'barcode' : 'QR code'}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
-      // Restore original styles in case of error
-      if (containerRef.current) {
-        containerRef.current.style.cssText = '';
-      }
     }
   };
 
@@ -290,11 +262,12 @@ export default function BarcodeGenerator() {
       {/* Code Display Container */}
       <div 
         ref={containerRef}
-        className={`bg-white border border-gray-200 rounded-lg p-6 mb-4 flex flex-col items-center justify-center ${
+        className={`border border-gray-200 rounded-lg p-6 mb-4 flex flex-col items-center justify-center ${
           codeType === 'barcode' ? 'min-h-[140px]' : 'min-h-[180px]'
         }`}
         style={{
-          backgroundColor: '#ffffff',
+          // Transparent container to avoid white background in capture/export
+          backgroundColor: 'transparent',
           border: '1px solid #e5e7eb',
           borderRadius: '8px'
         }}
@@ -305,10 +278,12 @@ export default function BarcodeGenerator() {
           ref={canvasRef}
           width={codeType === 'qrcode' ? 250 : 500}
           height={codeType === 'qrcode' ? 250 : 120}
-          className={`${displayText ? 'block' : 'hidden'} border border-gray-100 rounded`}
+          className={`${displayText ? 'block' : 'hidden'}`}
           style={{
-            border: '1px solid #f3f4f6',
-            borderRadius: '4px'
+            // Remove decorative borders so exported image has no extra space
+            border: '0',
+            borderRadius: '0',
+            backgroundColor: 'transparent'
           }}
         />
         
